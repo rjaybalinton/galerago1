@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Island Adventures - Puerto Galera</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 3D Effect for Map */
+        #map {
+            height: 500px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            border: 3px solid #1e3a8a;
+        }
+
+        /* Sidebar Animation */
+        .sidebar-active {
+            transform: translateX(0) !important;
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #1e3a8a;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Package card hover effects */
+        .package-card {
+            transition: all 0.3s ease;
+        }
+
+        .package-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Modal animations */
+        .modal {
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.show {
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Gradient backgrounds */
+        .hero-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card-gradient {
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        }
+
+        /* Activity badges */
+        .badge-island {
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+        }
+
+        .badge-snorkeling {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Quick access cards */
+        .quick-access-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .quick-access-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(135deg, rgba(255,255,255,1), rgba(255,255,255,0.9));
+        }
+
+        /* Success animation */
+        .success-checkmark {
+            animation: checkmark 0.6s ease-in-out;
+        }
+
+        @keyframes checkmark {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Booking history styles */
+        .booking-history-card {
+            transition: all 0.3s ease;
+        }
+
+        .booking-history-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-pending {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .status-confirmed {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .status-completed {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        .status-cancelled {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        /* Floating action button */
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div id="sidebar" class="w-64 bg-blue-900 text-white p-5 space-y-6 fixed inset-y-0 left-0 transform -translate-x-full transition-all duration-300 ease-in-out md:relative md:translate-x-0 z-50">
+            <h2 class="text-2xl font-bold">GaleraGo</h2>
+            <nav class="space-y-2">
+                <a href="/dashboard" class="block py-3 px-4 bg-blue-700 hover:bg-blue-600 rounded-md font-semibold">Dashboard</a>
+                <a href="/booking" class="block py-3 px-4 bg-blue-700 hover:bg-blue-600 rounded-md font-semibold">Booking</a>
+                <a href="/island" class="block py-3 px-4 bg-blue-800 hover:bg-blue-600 rounded-md font-semibold">Island</a>
+                <a href="/navigation" class="block py-3 px-4 bg-blue-700 hover:bg-blue-600 rounded-md font-semibold">Navigation</a>
+                <a href="/about" class="block py-3 px-4 bg-blue-700 hover:bg-blue-600 rounded-md font-semibold">About</a>
+                
+                <a href="/logout" class="block py-3 px-4 bg-red-600 hover:bg-red-700 rounded-md text-center font-semibold">Logout</a>
+            </nav>
+        </div>
+
+        <!-- Mobile menu button -->
+        <button id="mobile-menu-btn" class="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white shadow-lg border-b border-gray-200">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between items-center py-4">
+                        <div class="flex items-center">
+                            <h1 class="text-2xl font-bold text-gray-900">🏝️ Island Adventures</h1>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <button onclick="openBookingHistory()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-semibold transition-colors">
+                                <i class="fas fa-history mr-2"></i>My Bookings
+                            </button>
+                            <% if (typeof user !== 'undefined' && user && user.first_name) { %>
+                                <span class="text-gray-700">Welcome, <span class="font-semibold"><%= user.first_name %></span>!</span>
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                    <%= user.first_name.charAt(0).toUpperCase() %>
+                                </div>
+                            <% } else { %>
+                                <span class="text-gray-700">Welcome, Tourist!</span>
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                    T
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="flex-1 overflow-y-auto custom-scrollbar bg-gray-50">
+                <!-- Hero Section -->
+                <section class="hero-gradient text-white py-16 relative overflow-hidden">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <!-- Main Hero Content -->
+                        <div class="text-center mb-12">
+                            <h1 class="text-4xl md:text-6xl font-bold mb-4">Discover Paradise</h1>
+                            <p class="text-xl md:text-2xl mb-8 opacity-90">Experience the best of Puerto Galera with our amazing island adventures</p>
+                        </div>
+
+                        <!-- Quick Access Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                            <!-- Island Hopping Card -->
+                            <div class="quick-access-card rounded-2xl p-8 text-center cursor-pointer" onclick="filterPackages('Island Hopping')">
+                                <div class="text-6xl mb-4">🏝️</div>
+                                <h3 class="text-2xl font-bold text-gray-800 mb-3">Island Hopping</h3>
+                                <p class="text-gray-600 mb-4">Explore multiple beautiful islands in one amazing adventure</p>
+                                <div class="bg-blue-600 text-white px-6 py-3 rounded-full font-semibold inline-block hover:bg-blue-700 transition-colors">
+                                    View Island Hopping Tours
+                                </div>
+                            </div>
+
+                            <!-- Snorkeling Card -->
+                            <div class="quick-access-card rounded-2xl p-8 text-center cursor-pointer" onclick="filterPackages('Snorkeling')">
+                                <div class="text-6xl mb-4">🤿</div>
+                                <h3 class="text-2xl font-bold text-gray-800 mb-3">Snorkeling</h3>
+                                <p class="text-gray-600 mb-4">Dive into crystal clear waters and discover marine life</p>
+                                <div class="bg-green-600 text-white px-6 py-3 rounded-full font-semibold inline-block hover:bg-green-700 transition-colors">
+                                    View Snorkeling Tours
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Packages Section -->
+                <section class="py-12">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <!-- Section Header -->
+                        <div class="text-center mb-12">
+                            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Choose Your Adventure</h2>
+                            <p class="text-xl text-gray-600">Select from our amazing collection of island experiences and book instantly!</p>
+                        </div>
+
+                        <div id="packagesContainer">
+                            <div class="flex justify-center items-center py-16">
+                                <div class="loading-spinner"></div>
+                                <span class="ml-4 text-gray-600 text-lg">Loading amazing adventures...</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Floating Action Button for Booking History -->
+    <button class="fab" onclick="openBookingHistory()" title="View My Bookings">
+        <i class="fas fa-history text-xl"></i>
+    </button>
+
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-screen overflow-y-auto">
+                <!-- Modal Header -->
+                <div class="card-gradient text-white p-6 rounded-t-lg">
+                    <div class="flex justify-between items-center">
+                        <h2 id="modalTitle" class="text-2xl font-bold">Book Your Adventure</h2>
+                        <button onclick="closeBookingModal()" class="text-white hover:text-gray-200 transition-colors">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6">
+                    <div id="messageContainer"></div>
+                    
+                    <!-- Booking Summary -->
+                    <div id="bookingSummary" class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <!-- Summary will be populated by JavaScript -->
+                    </div>
+
+                    <!-- Booking Form -->
+                    <form id="bookingForm" class="space-y-6">
+                        <input type="hidden" id="packageId" name="package_id">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="bookingDate" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-calendar mr-2"></i>Preferred Date *
+                                </label>
+                                <input type="date" id="bookingDate" name="booking_date" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="participants" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-users mr-2"></i>Number of Participants *
+                                </label>
+                                <select id="participants" name="number_of_participants" required onchange="updateTotal()"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Select participants</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="contactNumber" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-phone mr-2"></i>Contact Number *
+                                </label>
+                                <input type="tel" id="contactNumber" name="contact_number" placeholder="09123456789" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="emergencyContact" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-user-shield mr-2"></i>Emergency Contact Name
+                                </label>
+                                <input type="text" id="emergencyContact" name="emergency_contact" placeholder="Full name"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="emergencyPhone" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-phone-alt mr-2"></i>Emergency Contact Number
+                            </label>
+                            <input type="tel" id="emergencyPhone" name="emergency_phone" placeholder="09123456789"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label for="specialRequests" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-comment mr-2"></i>Special Requests or Notes
+                            </label>
+                            <textarea id="specialRequests" name="special_requests" rows="3" 
+                                      placeholder="Any special requirements, dietary restrictions, or additional information..."
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+
+                        <!-- Total Amount -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="flex justify-between items-center text-lg font-bold text-blue-900">
+                                <span>Total Amount:</span>
+                                <span id="totalAmount">₱0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button type="submit" id="submitBooking" 
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-md font-semibold transition-colors">
+                                <i class="fas fa-check mr-2"></i>Confirm Booking
+                            </button>
+                            <button type="button" onclick="closeBookingModal()" 
+                                    class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 px-6 rounded-md font-semibold transition-colors">
+                                <i class="fas fa-times mr-2"></i>Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking History Modal -->
+    <div id="bookingHistoryModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-screen overflow-y-auto">
+                <!-- Modal Header -->
+                <div class="card-gradient text-white p-6 rounded-t-lg">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold">
+                            <i class="fas fa-history mr-2"></i>My Booking History
+                        </h2>
+                        <button onclick="closeBookingHistory()" class="text-white hover:text-gray-200 transition-colors">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6">
+                    <!-- Filter Tabs -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <button onclick="filterBookingHistory('all')" class="history-filter-btn bg-blue-600 text-white px-4 py-2 rounded-md font-semibold transition-colors">
+                            All Bookings
+                        </button>
+                        <button onclick="filterBookingHistory('Island Hopping')" class="history-filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md font-semibold transition-colors">
+                            🏝️ Island Hopping
+                        </button>
+                        <button onclick="filterBookingHistory('Snorkeling')" class="history-filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-md font-semibold transition-colors">
+                            🤿 Snorkeling
+                        </button>
+                    </div>
+
+                    <!-- Booking History Container -->
+                    <div id="bookingHistoryContainer">
+                        <div class="flex justify-center items-center py-16">
+                            <div class="loading-spinner"></div>
+                            <span class="ml-4 text-gray-600 text-lg">Loading your booking history...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let packages = [];
+        let selectedPackage = null;
+        let currentFilter = 'all';
+        let bookingHistory = [];
+        let currentHistoryFilter = 'all';
+
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('sidebar-active');
+        });
+
+        // Load packages on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPackages();
+            setupFormHandlers();
+            setMinDate();
+        });
+
+        function setMinDate() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('bookingDate').min = tomorrow.toISOString().split('T')[0];
+        }
+
+        function setupFormHandlers() {
+            const bookingForm = document.getElementById('bookingForm');
+            bookingForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await submitBooking();
+            });
+        }
+
+        async function loadPackages() {
+            try {
+                const response = await fetch('/api/packages/public');
+                if (!response.ok) {
+                    throw new Error('Failed to load packages');
+                }
+                
+                packages = await response.json();
+                renderPackages();
+            } catch (error) {
+                console.error('Error loading packages:', error);
+                document.getElementById('packagesContainer').innerHTML = 
+                    '<div class="text-center py-16"><div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Failed to load packages. Please refresh the page.</div></div>';
+            }
+        }
+
+        async function loadBookingHistory() {
+            try {
+                const response = await fetch('/api/bookings/history');
+                if (!response.ok) {
+                    throw new Error('Failed to load booking history');
+                }
+                
+                bookingHistory = await response.json();
+                renderBookingHistory();
+            } catch (error) {
+                console.error('Error loading booking history:', error);
+                document.getElementById('bookingHistoryContainer').innerHTML = 
+                    '<div class="text-center py-16"><div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Failed to load booking history. Please try again.</div></div>';
+            }
+        }
+
+        function renderPackages() {
+            const container = document.getElementById('packagesContainer');
+            
+            let filteredPackages = packages;
+            if (currentFilter !== 'all') {
+                filteredPackages = packages.filter(pkg => pkg.activity_type === currentFilter);
+            }
+
+            if (filteredPackages.length === 0) {
+                container.innerHTML = '<div class="text-center py-16"><p class="text-gray-600 text-lg">No packages found for the selected filter.</p></div>';
+                return;
+            }
+
+            const packagesHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    ${filteredPackages.map(pkg => `
+                        <div class="package-card bg-white rounded-lg shadow-lg overflow-hidden">
+                            <div class="relative">
+                                <img src="/uploads/packages/${pkg.image || 'default-package.jpg'}" 
+                                     alt="${pkg.name}" class="w-full h-64 object-cover">
+                                <div class="absolute top-4 right-4">
+                                    <span class="badge-${pkg.activity_type === 'Island Hopping' ? 'island' : 'snorkeling'} text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                        ${pkg.activity_type === 'Island Hopping' ? '🏝️' : '🤿'} ${pkg.activity_type}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="p-6">
+                                <h3 class="text-xl font-bold text-gray-900 mb-2">${pkg.name}</h3>
+                                <p class="text-gray-600 mb-4 line-clamp-3">${pkg.description || 'An amazing adventure awaits you!'}</p>
+                                
+                                <div class="grid grid-cols-2 gap-4 mb-4 text-sm text-gray-600">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-clock mr-2 text-blue-500"></i>
+                                        <span>${pkg.duration} day${pkg.duration > 1 ? 's' : ''}</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <i class="fas fa-users mr-2 text-blue-500"></i>
+                                        <span>Max ${pkg.max_participants} people</span>
+                                    </div>
+                                </div>
+                                
+                                ${pkg.includes ? `
+                                    <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                                        <h4 class="font-semibold text-gray-900 mb-1 text-sm">What's Included:</h4>
+                                        <p class="text-gray-600 text-sm">${pkg.includes}</p>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="text-2xl font-bold text-blue-600">₱${parseFloat(pkg.price).toLocaleString()}</span>
+                                        <span class="text-gray-500 text-sm">per person</span>
+                                    </div>
+                                    <button onclick="openBookingModal(${pkg.id})" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-semibold transition-colors">
+                                        <i class="fas fa-calendar-plus mr-2"></i>Book Now
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = packagesHTML;
+        }
+
+        function renderBookingHistory() {
+            const container = document.getElementById('bookingHistoryContainer');
+            
+            let filteredBookings = bookingHistory;
+            if (currentHistoryFilter !== 'all') {
+                filteredBookings = bookingHistory.filter(booking => booking.activity_type === currentHistoryFilter);
+            }
+
+            if (filteredBookings.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16">
+                        <i class="fas fa-calendar-times text-6xl text-gray-400 mb-4"></i>
+                        <h3 class="text-xl font-bold text-gray-600 mb-2">No Bookings Found</h3>
+                        <p class="text-gray-500">You haven't made any ${currentHistoryFilter === 'all' ? '' : currentHistoryFilter.toLowerCase()} bookings yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const bookingsHTML = `
+                <div class="space-y-4">
+                    ${filteredBookings.map(booking => `
+                        <div class="booking-history-card bg-white rounded-lg shadow-md p-6 border-l-4 border-${getStatusColor(booking.status)}">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-2xl mr-3">${booking.activity_type === 'Island Hopping' ? '🏝️' : '🤿'}</span>
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-900">${booking.package_name}</h3>
+                                            <p class="text-sm text-gray-600">${booking.activity_type}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
+                                        <div>
+                                            <i class="fas fa-hashtag mr-1"></i>
+                                            <span class="font-semibold">${booking.booking_reference}</span>
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-calendar mr-1"></i>
+                                            ${new Date(booking.booking_date).toLocaleDateString()}
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-users mr-1"></i>
+                                            ${booking.number_of_participants} participant${booking.number_of_participants > 1 ? 's' : ''}
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-peso-sign mr-1"></i>
+                                            ₱${parseFloat(booking.total_amount).toLocaleString()}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-xs text-gray-500">
+                                        Booked on: ${new Date(booking.created_at).toLocaleDateString()} at ${new Date(booking.created_at).toLocaleTimeString()}
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4 md:mt-0 md:ml-6">
+                                    <span class="status-${booking.status.toLowerCase()} text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                        ${booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            ${booking.special_requests ? `
+                                <div class="mt-4 p-3 bg-gray-50 rounded-md">
+                                    <p class="text-sm text-gray-700"><strong>Special Requests:</strong> ${booking.special_requests}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = bookingsHTML;
+        }
+
+        function getStatusColor(status) {
+            switch(status.toLowerCase()) {
+                case 'pending': return 'yellow-500';
+                case 'confirmed': return 'green-500';
+                case 'completed': return 'blue-500';
+                case 'cancelled': return 'red-500';
+                default: return 'gray-500';
+            }
+        }
+
+        function filterPackages(filter) {
+            currentFilter = filter;
+            renderPackages();
+            
+            // Scroll to packages section
+            document.getElementById('packagesContainer').scrollIntoView({ 
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+
+        function filterBookingHistory(filter) {
+            currentHistoryFilter = filter;
+            
+            // Update active filter button
+            document.querySelectorAll('.history-filter-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            
+            event.target.classList.remove('bg-gray-200', 'text-gray-700');
+            event.target.classList.add('bg-blue-600', 'text-white');
+            
+            renderBookingHistory();
+        }
+
+        function openBookingHistory() {
+            document.getElementById('bookingHistoryModal').classList.remove('hidden');
+            document.getElementById('bookingHistoryModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            loadBookingHistory();
+        }
+
+        function closeBookingHistory() {
+            document.getElementById('bookingHistoryModal').classList.add('hidden');
+            document.getElementById('bookingHistoryModal').classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
+
+        function openBookingModal(packageId) {
+            selectedPackage = packages.find(pkg => pkg.id === packageId);
+            if (!selectedPackage) return;
+
+            document.getElementById('packageId').value = packageId;
+            document.getElementById('modalTitle').textContent = `Book ${selectedPackage.name}`;
+            
+            updateBookingSummary();
+            updateParticipantsOptions();
+            
+            document.getElementById('bookingModal').classList.remove('hidden');
+            document.getElementById('bookingModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBookingModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+            document.getElementById('bookingModal').classList.remove('show');
+            document.body.style.overflow = 'auto';
+            
+            // Reset form
+            document.getElementById('bookingForm').reset();
+            document.getElementById('messageContainer').innerHTML = '';
+            selectedPackage = null;
+        }
+
+        function updateParticipantsOptions() {
+            const select = document.getElementById('participants');
+            const maxParticipants = selectedPackage.max_participants;
+            
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">Select participants</option>';
+            
+            // Add options up to max participants
+            for (let i = 1; i <= Math.min(maxParticipants, 15); i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i === 1 ? '1 Person' : `${i} People`;
+                select.appendChild(option);
+            }
+        }
+
+        function updateBookingSummary() {
+            const summary = document.getElementById('bookingSummary');
+            summary.innerHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-900">${selectedPackage.name}</h3>
+                        <p class="text-blue-600 font-semibold">${selectedPackage.activity_type}</p>
+                    </div>
+                    <span class="text-2xl font-bold text-blue-600">₱${parseFloat(selectedPackage.price).toLocaleString()}</span>
+                </div>
+                <div class="text-sm text-gray-600">
+                    <p><i class="fas fa-clock mr-2"></i>Duration: ${selectedPackage.duration} day${selectedPackage.duration > 1 ? 's' : ''}</p>
+                    <p><i class="fas fa-users mr-2"></i>Price per person</p>
+                </div>
+            `;
+        }
+
+        function updateTotal() {
+            const participants = parseInt(document.getElementById('participants').value) || 0;
+            const pricePerPerson = parseFloat(selectedPackage.price);
+            const total = participants * pricePerPerson;
+            
+            document.getElementById('totalAmount').textContent = `₱${total.toLocaleString()}`;
+        }
+
+        async function submitBooking() {
+            const submitBtn = document.getElementById('submitBooking');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+
+            try {
+                const formData = new FormData(document.getElementById('bookingForm'));
+                const bookingData = Object.fromEntries(formData);
+
+                const response = await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(bookingData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showSuccessMessage(`🎉 Booking Confirmed! Your reference number is: ${result.booking_reference}`);
+                    setTimeout(() => {
+                        closeBookingModal();
+                        // Refresh booking history if modal is open
+                        if (!document.getElementById('bookingHistoryModal').classList.contains('hidden')) {
+                            loadBookingHistory();
+                        }
+                    }, 3000);
+                } else {
+                    showMessage(result.error || 'Failed to create booking', 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting booking:', error);
+                showMessage('Failed to submit booking. Please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+
+        function showSuccessMessage(message) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-center">
+                    <div class="success-checkmark text-4xl mb-2">✅</div>
+                    <div class="font-bold text-lg">${message}</div>
+                    <div class="text-sm mt-2">You can view this booking in your history.</div>
+                </div>
+            `;
+        }
+
+        function showMessage(message, type) {
+            const container = document.getElementById('messageContainer');
+            const alertClass = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+            container.innerHTML = `<div class="${alertClass} border px-4 py-3 rounded mb-4">${message}</div>`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 5000);
+            }
+        }
+
+        // Close modals when clicking outside
+        window.addEventListener('click', function(e) {
+            if (e.target.id === 'bookingModal') {
+                closeBookingModal();
+            }
+            if (e.target.id === 'bookingHistoryModal') {
+                closeBookingHistory();
+            }
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(e) {
+            const sidebar = document.getElementById('sidebar');
+            const menuBtn = document.getElementById('mobile-menu-btn');
+            
+            if (window.innerWidth < 768 && !sidebar.contains(e.target) && !menuBtn.contains(e.target)) {
+                sidebar.classList.remove('sidebar-active');
+            }
+        });
+    </script>
+</body>
+</html>

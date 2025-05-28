@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tourist Dashboard - Puerto Galera</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div id="sidebar" class="w-64 bg-blue-900 text-white p-5 space-y-6 absolute inset-y-0 left-0 transform -translate-x-full transition duration-300 ease-in-out md:relative md:translate-x-0">
+            <h2 class="text-xl font-bold">GaleraGo</h2>
+            <nav>
+                <a href="#" class="block py-2 px-4 hover:bg-blue-700 rounded">Dashboard</a>
+                <a href="/booking" class="block py-2 px-4 hover:bg-blue-700 rounded">Booking</a>
+                <a href="/island" class="block py-2 px-4 hover:bg-blue-700 rounded">Island</a>
+                <a href="/navigation" class="block py-2 px-4 hover:bg-blue-700 rounded">Navigation</a>
+                <a href="/about" class="block py-2 px-4 hover:bg-blue-700 rounded">About</a>
+
+                <a href="/logout" class="block py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-center">Logout</a>
+            </nav>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Navbar -->
+            <header class="bg-white shadow-md p-4 flex justify-between items-center">
+                <button id="menu-btn" class="md:hidden bg-blue-900 text-white px-3 py-2 rounded">☰</button>
+                <h1 class="text-xl font-semibold">Tourist Dashboard</h1>
+            </header>
+            
+            <!-- Main Content -->
+<main class="p-6">
+    <h2 class="text-lg font-bold">Welcome, <%= user.name %>!</h2>
+    <p class="text-gray-600">You are logged in as <%= user.email %>.</p>
+    <p class="text-gray-500 mt-2">Explore Puerto Galera and enjoy your stay!</p>
+</main>
+        </div>
+    </div>
+    
+    <script>
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        
+        menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('-translate-x-full');
+        });
+    </script>
+</body>
+</html>
